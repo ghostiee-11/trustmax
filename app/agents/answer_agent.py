@@ -104,17 +104,16 @@ class AnswerAgent:
             sel = [t for t in rows if t["gt_code"] == code]
             total = round(sum(t["amount"] for t in sel), 2)
             label = self.name_by_code.get(code, code)
-            want_list = name == "list_transactions" or params.get("list")
             template = f"You spent ${total:,.2f} on {label}{pp}, across {len(sel)} transactions."
-            return self._wrap(total, sel, template, table=self._tx_table(sel) if want_list else None)
+            return self._wrap(total, sel, template, table=self._tx_table(sel))
 
         if name == "total_expense":
             total = round(sum(t["amount"] for t in rows), 2)
             return self._wrap(total, rows, f"Your total expenses{pp} were ${total:,.2f}, across {len(rows)} transactions.",
-                              table=self._tx_table(rows) if params.get("list") else None)
+                              table=self._tx_table(rows))
 
         if name == "count_transactions":
-            return self._wrap(len(rows), rows, f"You had {len(rows)} transactions{pp}.")
+            return self._wrap(len(rows), rows, f"You had {len(rows)} transactions{pp}.", table=self._tx_table(rows))
 
         if name == "average_transaction":
             avg = round(mean([t["amount"] for t in rows]), 2) if rows else 0.0

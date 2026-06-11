@@ -464,8 +464,17 @@ function AskEd({ firm }: { firm: string }) {
 
 function AnswerTable({ table }: { table: any }) {
   const rows = table.rows || [];
+  const collapsible = table.type === "transactions";
+  const [open, setOpen] = useState(!collapsible);
   return (
-    <div className="mt-2 card overflow-hidden">
+    <div className="mt-2">
+      {collapsible && (
+        <button onClick={() => setOpen(!open)} className="tag text-muted hover:text-accent mb-1">
+          {open ? "hide transactions" : `view ${rows.length} transactions`}
+        </button>
+      )}
+      {open && (
+      <div className="card overflow-hidden">
       <div className="max-h-56 overflow-y-auto">
         {table.type === "transactions" && rows.map((r: any, i: number) => (
           <div key={i} className="ledger-row px-3 py-1.5 grid grid-cols-[auto_1fr_auto_auto] gap-3 items-center text-xs">
@@ -490,6 +499,8 @@ function AnswerTable({ table }: { table: any }) {
           </div>
         ))}
       </div>
+      </div>
+      )}
     </div>
   );
 }
@@ -528,6 +539,45 @@ function EdMessage({ m }: { m: any }) {
 
 const STEP_TONE: Record<string, string> = { done: "accent", waiting_on_client: "amber", needs_review: "amber", needs_approval: "amber", pending: "muted" };
 
+function CloseStep({ s }: { s: any }) {
+  const [open, setOpen] = useState(false);
+  const d = s.data || {};
+  const hasData = (d.alerts && d.alerts.length) || (d.sample && d.sample.length) || d.pbc;
+  return (
+    <li className="relative">
+      <span className={`absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full ${s.status === "done" ? "bg-accent" : "bg-amber"}`} />
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-ink">{s.step}</span>
+        <Tag tone={STEP_TONE[s.status] || "muted"}>{s.status.replace(/_/g, " ")}</Tag>
+        {hasData && <button onClick={() => setOpen(!open)} className="tag text-muted hover:text-accent ml-auto">{open ? "hide" : "see data"}</button>}
+      </div>
+      <div className="text-xs text-muted">{s.detail}</div>
+      {d.reminder?.body && (
+        <div className="mt-1 text-xs bg-amber/5 border border-amber/20 rounded-sm px-3 py-2 text-ink">
+          <span className="tag text-amber">draft reminder, approve to send</span><br />{d.reminder.body}
+        </div>
+      )}
+      {d.message?.body && (
+        <div className="mt-1 text-xs bg-accentSoft/50 border border-accent/20 rounded-sm px-3 py-2 text-ink">
+          <span className="tag text-accent">draft client update, approve to send</span><br />{d.message.body}
+        </div>
+      )}
+      {open && hasData && (
+        <div className="mt-1 text-xs text-muted space-y-0.5 border-l border-line pl-3">
+          {d.pbc && <>
+            <div>received: <span className="text-ink">{d.pbc.received.join(", ") || "none"}</span></div>
+            {d.pbc.missing.length > 0 && <div>missing: <span className="text-amber">{d.pbc.missing.join(", ")}</span></div>}
+          </>}
+          {(d.alerts || []).map((a: any, i: number) => <div key={i}><span className="text-ink">{a.type}</span>: {a.evidence?.note}</div>)}
+          {(d.sample || []).map((e: any, i: number) => (
+            <div key={i}><span className="num text-ink">{e.document_id}</span>: {e.fields.map((f: any) => `${f.name}=${f.value}`).join(", ")}</div>
+          ))}
+        </div>
+      )}
+    </li>
+  );
+}
+
 function Close({ firm }: { firm: string }) {
   const [clients, setClients] = useState<any[]>([]);
   const [client, setClient] = useState("");
@@ -545,11 +595,13 @@ function Close({ firm }: { firm: string }) {
     api(`/import/sample`).then((d) => setCsv(d.csv)).catch(() => {});
   }, [firm]);
 
-  const runClose = async () => {
+  const runCloseFor = async (cid: string) => {
+    if (!cid) return;
     setRunning(true); setClose(null);
-    try { setClose(await api(`/close`, { method: "POST", body: JSON.stringify({ firm_id: firm, client_id: client, period: "2026-01" }) })); }
+    try { setClose(await api(`/close`, { method: "POST", body: JSON.stringify({ firm_id: firm, client_id: cid, period: "2026-01" }) })); }
     finally { setRunning(false); }
   };
+  useEffect(() => { if (client) runCloseFor(client); }, [client]);   // auto-run so the workflow shows immediately
   const runImport = async () => {
     setImporting(true);
     try { setImp(await api(`/import`, { method: "POST", body: JSON.stringify({ firm_id: firm, client_id: client, csv }) })); }
@@ -575,30 +627,12 @@ function Close({ firm }: { firm: string }) {
           <select value={client} onChange={(e) => setClient(e.target.value)} className="bg-paper border border-line rounded-sm px-2 py-1.5 text-xs num">
             {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
-          <button onClick={runClose} disabled={running} className="bg-accent text-white px-5 py-1.5 rounded-sm text-sm font-medium disabled:opacity-50">{running ? "running…" : "Run close"}</button>
+          <button onClick={() => runCloseFor(client)} disabled={running} className="bg-accent text-white px-5 py-1.5 rounded-sm text-sm font-medium disabled:opacity-50">{running ? "running…" : "Re-run close"}</button>
         </div>
+        {running && !close && <div className="mt-3 text-sm text-muted">running the close…</div>}
         {close && (
           <ol className="mt-3 border-l-2 border-line pl-4 space-y-3">
-            {close.steps.map((s: any, i: number) => (
-              <li key={i} className="relative">
-                <span className={`absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full ${s.status === "done" ? "bg-accent" : "bg-amber"}`} />
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-ink">{s.step}</span>
-                  <Tag tone={STEP_TONE[s.status] || "muted"}>{s.status.replace(/_/g, " ")}</Tag>
-                </div>
-                <div className="text-xs text-muted">{s.detail}</div>
-                {s.data?.reminder?.body && (
-                  <div className="mt-1 text-xs bg-amber/5 border border-amber/20 rounded-sm px-3 py-2 text-ink">
-                    <span className="tag text-amber">draft reminder, approve to send</span><br />{s.data.reminder.body}
-                  </div>
-                )}
-                {s.data?.message?.body && (
-                  <div className="mt-1 text-xs bg-accentSoft/50 border border-accent/20 rounded-sm px-3 py-2 text-ink">
-                    <span className="tag text-accent">draft client update, approve to send</span><br />{s.data.message.body}
-                  </div>
-                )}
-              </li>
-            ))}
+            {close.steps.map((s: any, i: number) => <CloseStep key={i} s={s} />)}
           </ol>
         )}
       </div>
@@ -705,6 +739,7 @@ function ComplianceCard({ firm }: { firm: string }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const run = async () => { setLoading(true); try { setData(await api(`/firms/${firm}/compliance`)); } finally { setLoading(false); } };
+  useEffect(() => { setData(null); api(`/firms/${firm}/compliance`).then(setData).catch(() => {}); }, [firm]);
   const tone: Record<string, string> = { high: "rust", medium: "amber", low: "muted" };
   return (
     <div className="card p-5 mt-3 rise">
