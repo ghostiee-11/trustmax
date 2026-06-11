@@ -108,5 +108,5 @@ def _narrate(period: str, prior: str, total: dict, rows: list, provider) -> tupl
     except Exception:
         text = ""
     if text:
-        return text, f"{provider.name} {provider.model}"
+        return text, "model phrased"
     return computed, "computed"

@@ -24,6 +24,8 @@ def narrate(firm_id: str, transaction_id: str) -> dict:
     dec = lin.get("decision", {})
     path = lin.get("reasoning_path", []) or []
     code = dec.get("code")
+    if code is None:
+        return {"error": "this transaction has no coding decision to explain yet"}
     amount = tx.get("amount")
     literal = (f"{tx.get('vendor_raw')} for ${amount:,.2f} was coded to {code}"
                + (f" because {path[0][0].lower()}{path[0][1:]}" if path else ".")) if amount is not None else "; ".join(path)
@@ -48,5 +50,5 @@ def narrate(firm_id: str, transaction_id: str) -> dict:
     grounded = (str(code) in out) and (round(float(amount), 2) in nums or float(amount) in nums)
     if not grounded:
         out = literal
-    return {"narrative": out, "grounded": grounded, "generated_by": provider.model if grounded else "verified template",
-            "lineage": lin}
+    return {"narrative": out, "grounded": grounded,
+            "generated_by": "model phrased" if grounded else "verified template", "lineage": lin}

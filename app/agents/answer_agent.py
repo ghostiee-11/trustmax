@@ -318,7 +318,7 @@ class AnswerAgent:
                 planner = "rule-based (follow-up)"
         if plan is None:
             plan = self.llm_plan(question, history)
-            planner = f"{self.provider.name} planner"
+            planner = "model planner"
         if plan is None:
             return self._abstain(client_id, question, "I could not map that to your records.", trace)
         # on a follow-up, inherit an unspecified period from the previous turn
@@ -346,7 +346,7 @@ class AnswerAgent:
         if not grounded:
             composed, grounded = template, self._validate(template, value)
             used_llm = False
-        model_tag = f"{self.provider.name}/{self.provider.model}" if used_llm else "verified template"
+        model_tag = "model phrased" if used_llm else "verified template"
         trace.append({"label": "Compose", "detail": f"phrased via {model_tag}", "ok": True})
         trace.append({"label": "Validate number vs evidence", "detail": "exact match" if grounded else "mismatch, refused", "ok": grounded})
 

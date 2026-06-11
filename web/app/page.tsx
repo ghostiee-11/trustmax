@@ -5,6 +5,9 @@ import { api, fmtNum, fmtUSD, pct } from "../lib/api";
 import { Stat, Tag, StatusBadge, SectionTitle, Meter, Chip, Select, Rail } from "../components/ui";
 import { I } from "../components/icons";
 
+// never surface a raw model id in the UI; show a clean label instead
+const genLabel = (g?: string) => (!g ? "" : /llama|groq|gpt|claude|mistral|\//i.test(g) ? "model phrased" : g);
+
 /* ------------------------------------------------------------------ */
 /* app shell                                                            */
 /* ------------------------------------------------------------------ */
@@ -914,7 +917,7 @@ function EdMessage({ m }: { m: any }) {
         ) : (
           <>
             <Tag tone="accent">grounded</Tag>
-            <span className="tag text-faint">{m.generated_by === "computed" ? "computed" : "model phrased"}</span>
+            <span className="tag text-faint">{genLabel(m.generated_by)}</span>
           </>
         )}
         {!m.abstained && m.citations && <span className="tag text-faint">{m.citations.length} citations</span>}
@@ -1604,7 +1607,7 @@ function Flux({ firm }: { firm: string }) {
             <div className="flex items-center gap-2 mb-2.5 flex-wrap">
               <div className="w-7 h-7 rounded-lg bg-accentSoft border border-accent/20 text-accent flex items-center justify-center"><I name="spark" size={13} /></div>
               <div className="tag text-faint">Flux note · {data.prior} to {data.period}</div>
-              <span className="tag text-muted ml-auto">{data.generated_by === "computed" ? "computed" : "model phrased"}</span>
+              <span className="tag text-muted ml-auto">{genLabel(data.generated_by)}</span>
             </div>
             <p className="font-display text-[18px] text-ink leading-snug">{data.narrative}</p>
           </div>
@@ -1819,15 +1822,25 @@ function ComplianceCard({ firm }: { firm: string }) {
 
 function Trust({ firm }: { firm: string }) {
   const [health, setHealth] = useState<any>(null);
-  const [explain, setExplain] = useState<any>(null);
+  const [txns, setTxns] = useState<any[]>([]);
   const [txId, setTxId] = useState("");
+  const [explain, setExplain] = useState<any>(null);
   const [narr, setNarr] = useState<any>(null);
   const [narrLoading, setNarrLoading] = useState(false);
+  const load = (id: string) => {
+    setExplain(null); setNarr(null); setTxId(id);
+    api(`/firms/${firm}/explain/${id}`).then(setExplain).catch(() => {});
+  };
   useEffect(() => {
-    setHealth(null); setExplain(null); setNarr(null);
+    setHealth(null); setExplain(null); setNarr(null); setTxId(""); setTxns([]);
     api(`/firms/${firm}/trust/health`).then(setHealth).catch(() => {});
-    api(`/firms/${firm}/transactions?limit=1`).then((t) => {
-      if (t[0]) { setTxId(t[0].id); api(`/firms/${firm}/explain/${t[0].id}`).then(setExplain).catch(() => {}); }
+    // load coded transactions so any number can be picked and traced; default to a rich one
+    api(`/firms/${firm}/transactions?limit=80`).then((ts: any[]) => {
+      const coded = ts.filter((t) => t.predicted_code);
+      setTxns(coded);
+      const good = coded.find((t) => t.graph_support > 0 && t.reasoning_path?.length)
+        || coded.find((t) => t.reasoning_path?.length) || coded[0];
+      if (good) load(good.id);
     }).catch(() => {});
   }, [firm]);
   const narrate = async () => { setNarrLoading(true); try { setNarr(await api(`/firms/${firm}/explain/${txId}/narrate`)); } finally { setNarrLoading(false); } };
@@ -1856,40 +1869,56 @@ function Trust({ firm }: { firm: string }) {
 
       <ComplianceCard firm={firm} />
 
-      {explain && !explain.error && (
+      {txns.length > 0 && (
         <div className="card card-hover p-6 mt-3">
-          <div className="flex items-start justify-between gap-4 mb-4">
+          <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
             <div className="flex items-start gap-3.5">
               <div className="w-9 h-9 shrink-0 rounded-lg bg-accentSoft border border-accent/15 text-accent flex items-center justify-center">
                 <I name="graph" size={15} />
               </div>
               <div>
                 <div className="text-[13.5px] font-semibold text-ink">Explain this number</div>
-                <div className="text-xs text-muted mt-0.5">Any figure in the ledger can be traced back to its full decision path.</div>
+                <div className="text-xs text-muted mt-0.5">Pick any transaction to trace its full decision path.</div>
               </div>
             </div>
-            <button onClick={narrate} disabled={narrLoading || !txId} className="btn-ghost shrink-0">
-              <I name="chat" size={12} />
-              {narrLoading ? "Narrating…" : "Narrate in plain English"}
-            </button>
+            <div className="flex items-center gap-2">
+              <Select value={txId} onChange={(e) => load(e.target.value)} ariaLabel="Transaction to explain">
+                {txns.map((t) => (
+                  <option key={t.id} value={t.id}>{t.vendor_raw} · {fmtUSD(t.amount)}</option>
+                ))}
+              </Select>
+              <button onClick={narrate} disabled={narrLoading || !explain?.decision?.code} className="btn-ghost shrink-0">
+                <I name="chat" size={12} />
+                {narrLoading ? "Narrating…" : "Narrate"}
+              </button>
+            </div>
           </div>
-          <div className="rounded-lg border border-line bg-paper px-3.5 py-2.5 text-sm mb-4 inline-flex items-center gap-2 flex-wrap">
-            <span className="text-ink font-medium">{explain.transaction?.vendor_raw}</span>
-            <span className="num text-muted">{fmtUSD(explain.transaction?.amount)}</span>
-            <I name="arrowRight" size={12} className="text-faint" />
-            <span className="num text-accent">{explain.decision?.code}</span>
-          </div>
-          {narr && (
-            <p className="unfold font-display text-[15.5px] text-ink mb-4 bg-accentSoft/60 border border-accent/20 rounded-lg px-4 py-3 leading-snug">
-              {narr.narrative} <span className="tag text-muted">{narr.generated_by === "computed" ? "computed" : "model phrased"}</span>
-            </p>
+          {!explain ? (
+            <div className="space-y-2"><div className="skel h-9 w-2/3" /><div className="skel h-4 w-1/2" /></div>
+          ) : explain.decision?.code ? (
+            <div className="view-enter">
+              <div className="rounded-lg border border-line bg-paper px-3.5 py-2.5 text-sm mb-4 inline-flex items-center gap-2 flex-wrap">
+                <span className="text-ink font-medium">{explain.transaction?.vendor_raw}</span>
+                <span className="num text-muted">{fmtUSD(explain.transaction?.amount)}</span>
+                <I name="arrowRight" size={12} className="text-faint" />
+                <span className="num text-accent">{explain.decision.code} {explain.decision.account}</span>
+                {explain.decision.grounded && <Tag tone="accent">grounded</Tag>}
+              </div>
+              {narr && (
+                <p className="unfold font-display text-[15.5px] text-ink mb-4 bg-accentSoft/60 border border-accent/20 rounded-lg px-4 py-3 leading-snug">
+                  {narr.narrative} <span className="tag text-muted">{genLabel(narr.generated_by)}</span>
+                </p>
+              )}
+              <div className="tag text-faint mb-2">Reasoning path</div>
+              <Rail items={explain.reasoning_path || []} empty="Coded from the chart of accounts; no learned fact yet." />
+              <div className="mt-4 pt-3 border-t border-line text-xs text-muted flex items-center gap-1.5">
+                <I name="shield" size={12} className="text-accent" />
+                {fmtNum(explain.audit_trail?.length)} audit events recorded for this transaction.
+              </div>
+            </div>
+          ) : (
+            <div className="text-sm text-muted">No coding decision recorded for this transaction yet. Pick another.</div>
           )}
-          <div className="tag text-faint mb-2">Reasoning path</div>
-          <Rail items={explain.reasoning_path || []} empty="No reasoning recorded for this transaction." />
-          <div className="mt-4 pt-3 border-t border-line text-xs text-muted flex items-center gap-1.5">
-            <I name="shield" size={12} className="text-accent" />
-            {fmtNum(explain.audit_trail?.length)} audit events recorded for this transaction.
-          </div>
         </div>
       )}
     </div>
