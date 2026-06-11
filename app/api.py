@@ -42,6 +42,14 @@ class ImportBody(BaseModel):
     csv: str
 
 
+class IngestBody(BaseModel):
+    firm_id: str
+    client_id: str
+    kind: str = "feed"
+    text: str
+    filename: str | None = None
+
+
 @app.get("/health")
 def health():
     return {"ok": True}
@@ -194,6 +202,36 @@ def import_sample():
 def do_import(body: ImportBody):
     from .agents.importer import import_csv
     return import_csv(body.firm_id, body.client_id, body.csv)
+
+
+@app.get("/ingest/sample")
+def ingest_sample():
+    from .agents.ingest_agent import SAMPLE_FEED, SAMPLE_INVOICE
+    return {"feed": SAMPLE_FEED, "invoice": SAMPLE_INVOICE}
+
+
+@app.post("/ingest")
+def do_ingest(body: IngestBody):
+    from .agents.ingest_agent import ingest
+    res = ingest(body.firm_id, body.client_id, body.kind, body.text, body.filename or "")
+    if res.get("error"):
+        raise HTTPException(400, res["error"])
+    return res
+
+
+@app.get("/firms/{firm_id}/recon")
+def recon(firm_id: str, client_id: str, period: str | None = None):
+    from .agents.recon_agent import reconcile
+    return reconcile(firm_id, client_id, period)
+
+
+@app.get("/firms/{firm_id}/flux")
+def flux_view(firm_id: str, client_id: str, period: str | None = None):
+    from .agents.flux_agent import flux
+    res = flux(firm_id, client_id, period)
+    if res.get("error"):
+        raise HTTPException(400, res["error"])
+    return res
 
 
 @app.get("/firms/{firm_id}/explain/{tx_id}")
