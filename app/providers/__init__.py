@@ -104,7 +104,7 @@ class GroqProvider(LLMProvider):
         user = (
             f"CHART OF ACCOUNTS:\n{self._accounts_block(accounts)}\n\n"
             f"FIRM-APPROVED SIMILAR EXAMPLES (authoritative):\n{self._examples_block(examples)}\n\n"
-            f"TRANSACTION:\n  vendor='{tx['vendor']}' memo='{tx.get('memo','')}' amount={tx['amount']} date={tx['date']}\n\n"
+            f"TRANSACTION:\n  vendor='{(tx.get('vendor_raw') or tx.get('vendor',''))}' memo='{tx.get('memo','')}' amount={tx['amount']} date={tx['date']}\n\n"
             "Return the JSON now."
         )
         out = _extract_json(self._chat(system, user))
@@ -125,7 +125,7 @@ class GroqProvider(LLMProvider):
         user = (
             f"CHART:\n{self._accounts_block(accounts)}\n\n"
             f"FIRM-APPROVED EXAMPLES:\n{self._examples_block(examples)}\n\n"
-            f"TRANSACTION: vendor='{tx['vendor']}' memo='{tx.get('memo','')}' amount={tx['amount']}\n"
+            f"TRANSACTION: vendor='{(tx.get('vendor_raw') or tx.get('vendor',''))}' memo='{tx.get('memo','')}' amount={tx['amount']}\n"
             f"PROPOSED: {proposed_code} {proposed_name}\n\nReturn the JSON now."
         )
         out = _extract_json(self._chat(system, user))
@@ -142,7 +142,7 @@ class GroqProvider(LLMProvider):
             '{"subject": "...", "body": "..."}.'
         )
         user = (
-            f"Transaction needing clarification: vendor='{tx['vendor']}' memo='{tx.get('memo','')}' "
+            f"Transaction needing clarification: vendor='{(tx.get('vendor_raw') or tx.get('vendor',''))}' memo='{tx.get('memo','')}' "
             f"amount={tx['amount']} date={tx['date']}.\nReason we need the client: {reason}\n"
             "Ask the client politely for what is needed. Keep it under 90 words. Return the JSON now."
         )
@@ -236,10 +236,10 @@ class MockProvider(LLMProvider):
 
     def draft_message(self, tx: dict, reason: str) -> dict:
         return {
-            "subject": f"Quick question about your {tx['vendor']} charge",
+            "subject": f"Quick question about your {(tx.get('vendor_raw') or tx.get('vendor',''))} charge",
             "body": (
                 f"Hi,\n\nWe're finalizing your books and want to code one item correctly. "
-                f"Could you confirm what the {tx['vendor']} charge of ${tx['amount']:.2f} on "
+                f"Could you confirm what the {(tx.get('vendor_raw') or tx.get('vendor',''))} charge of ${tx['amount']:.2f} on "
                 f"{tx['date']} was for? {reason}\n\nThanks so much,\nYour accounting team"
             ),
         }

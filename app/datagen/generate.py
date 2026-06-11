@@ -170,6 +170,7 @@ class Generator:
             # vary signal strength: some docs are "hard" (weak signals) to exercise graph routing
             strength = self.rng.random()
             doc_type = self.rng.choice(["invoice", "receipt", "bank_statement", "tax_form", "engagement_letter"])
+            mo = self.rng.randint(1, self.cfg["months"])
             self.rows["documents"].append({
                 "id": f"{client_id}-doc{d:02d}", "firm_id": firm_id, "doc_type": doc_type,
                 "filename": f"{doc_type}_{v['canon'].split()[0].lower()}_{d}.pdf",
@@ -178,9 +179,11 @@ class Generator:
                 "ein_hint": (ein if strength > 0.7 else None),
                 "account_last4": (last4 if strength > 0.55 else None),
                 "vendor_hint": v["canon"],
+                "amount": round(self.rng.uniform(v["amt"][0], v["amt"][1]), 2),
+                "doc_date": f"{YEAR}-{mo:02d}-{self.rng.randint(1,27):02d}",
                 "gt_client_id": client_id, "routed_client_id": None,
                 "routing_status": "pending", "routing_confidence": None,
-                "received_at": f"{YEAR}-{self.rng.randint(1,self.cfg['months']):02d}-{self.rng.randint(1,27):02d}"})
+                "received_at": f"{YEAR}-{mo:02d}-{self.rng.randint(1,27):02d}"})
 
     def _qa(self, firm_id: str, client_id: str, cname: str, txns: list[dict]) -> None:
         period = f"{YEAR}-01"

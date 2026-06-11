@@ -30,6 +30,18 @@ class AskBody(BaseModel):
     history: list | None = None
 
 
+class CloseBody(BaseModel):
+    firm_id: str
+    client_id: str
+    period: str | None = None
+
+
+class ImportBody(BaseModel):
+    firm_id: str
+    client_id: str
+    csv: str
+
+
 @app.get("/health")
 def health():
     return {"ok": True}
@@ -143,6 +155,45 @@ def route_run(firm_id: str):
 def ask(body: AskBody):
     return AnswerAgent(body.firm_id).answer(body.client_id, body.question,
                                             context=body.context, history=body.history)
+
+
+@app.get("/firms/{firm_id}/documents/{doc_id}/extract")
+def document_extract(firm_id: str, doc_id: str):
+    from .agents.extract_agent import extract_by_id
+    res = extract_by_id(firm_id, doc_id)
+    if res.get("error"):
+        raise HTTPException(404, res["error"])
+    return res
+
+
+@app.get("/firms/{firm_id}/pbc")
+def pbc(firm_id: str):
+    from .agents.collection_agent import firm_pbc
+    return firm_pbc(firm_id)
+
+
+@app.get("/firms/{firm_id}/pbc/{client_id}/reminder")
+def pbc_reminder(firm_id: str, client_id: str):
+    from .agents.collection_agent import draft_reminder
+    return draft_reminder(firm_id, client_id)
+
+
+@app.post("/close")
+def close(body: CloseBody):
+    from .agents.orchestrator import run_close
+    return run_close(body.firm_id, body.client_id, body.period)
+
+
+@app.get("/import/sample")
+def import_sample():
+    from .agents.importer import SAMPLE_CSV
+    return {"csv": SAMPLE_CSV}
+
+
+@app.post("/import")
+def do_import(body: ImportBody):
+    from .agents.importer import import_csv
+    return import_csv(body.firm_id, body.client_id, body.csv)
 
 
 @app.get("/firms/{firm_id}/explain/{tx_id}")

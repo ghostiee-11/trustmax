@@ -82,7 +82,11 @@ class Neo4jStore(GraphStore):
                 pass
 
     def reset(self) -> None:
-        self._run("MATCH (n) DETACH DELETE n")
+        # batched delete so large graphs do not blow the transaction memory limit
+        try:
+            self._run("MATCH (n) CALL { WITH n DETACH DELETE n } IN TRANSACTIONS OF 5000 ROWS")
+        except Exception:
+            self._run("MATCH (n) DETACH DELETE n")
 
     def add_node(self, label: str, firm_id: str, key: str, props: dict) -> None:
         self._run(

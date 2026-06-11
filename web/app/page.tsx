@@ -6,7 +6,7 @@ import { Stat, Tag, StatusBadge, SectionTitle } from "../components/ui";
 
 const TABS = [
   ["overview", "Overview"], ["coding", "Coding & Flywheel"], ["routing", "Document Routing"],
-  ["alerts", "Anomaly Flags"], ["ask", "Ask Ed"], ["trust", "Trust & Security"],
+  ["close", "Close & Collect"], ["alerts", "Anomaly Flags"], ["ask", "Ask Ed"], ["trust", "Trust & Security"],
 ];
 
 export default function Page() {
@@ -70,6 +70,7 @@ export default function Page() {
               {tab === "overview" && <Overview firm={firm} />}
               {tab === "coding" && <Coding firm={firm} />}
               {tab === "routing" && <Routing firm={firm} />}
+              {tab === "close" && <Close firm={firm} />}
               {tab === "alerts" && <Alerts firm={firm} />}
               {tab === "ask" && <AskEd firm={firm} />}
               {tab === "trust" && <Trust firm={firm} />}
@@ -248,35 +249,53 @@ function Routing({ firm }: { firm: string }) {
         ))}
       </div>
       <div className="card rise">
-        {shown.map((d) => <RoutingRow key={d.id} d={d} />)}
+        {shown.map((d) => <RoutingRow key={d.id} d={d} firm={firm} />)}
         {!shown.length && <div className="px-5 py-6 text-sm text-muted text-center">loading documents…</div>}
       </div>
     </div>
   );
 }
 
-function RoutingRow({ d }: { d: any }) {
+function RoutingRow({ d, firm }: { d: any; firm: string }) {
   const [open, setOpen] = useState(false);
+  const [ext, setExt] = useState<any>(null);
+  const toggle = () => {
+    const next = !open; setOpen(next);
+    if (next && !ext) api(`/firms/${firm}/documents/${d.id}/extract`).then(setExt).catch(() => {});
+  };
   return (
     <div className="rule">
-      <button onClick={() => setOpen(!open)} className="w-full ledger-row px-5 py-2.5 grid grid-cols-[1fr_auto_auto_auto] items-center gap-4 text-sm text-left">
+      <button onClick={toggle} className="w-full ledger-row px-5 py-2.5 grid grid-cols-[1fr_auto_auto_auto] items-center gap-4 text-sm text-left">
         <div className="truncate"><span className="text-ink">{d.filename}</span> <span className="text-muted text-xs">· {d.doc_type}</span></div>
         <div className="num text-muted text-xs hidden md:block">{d.sender_domain}</div>
         <div className="num text-muted text-xs w-12 text-right">{d.confidence != null ? `${(d.confidence * 100).toFixed(0)}%` : ""}</div>
         <div className="w-28 text-right"><StatusBadge status={d.status} /></div>
       </button>
       {open && (
-        <div className="px-5 pb-4 text-xs">
-          <div className="mb-2">
-            {d.status === "auto_routed"
-              ? <span className="text-muted">routed to <span className="text-accent">{d.routed_client_name}</span> at {(d.confidence * 100).toFixed(0)}% confidence</span>
-              : <span className="text-amber">ambiguous, escalated to a human: which client?</span>}
+        <div className="px-5 pb-4 text-xs grid md:grid-cols-2 gap-4">
+          <div>
+            <div className="mb-2">
+              {d.status === "auto_routed"
+                ? <span className="text-muted">routed to <span className="text-accent">{d.routed_client_name}</span> at {(d.confidence * 100).toFixed(0)}% confidence</span>
+                : <span className="text-amber">ambiguous, escalated to a human: which client?</span>}
+            </div>
+            <div className="text-muted mb-1">matching signals on the graph:</div>
+            <ul className="space-y-0.5">
+              {(d.evidence || []).map((e: string, i: number) => <li key={i} className="text-ink">· {e}</li>)}
+              {(!d.evidence || !d.evidence.length) && <li className="text-muted">no strong identifier matched, so a human decides.</li>}
+            </ul>
           </div>
-          <div className="text-muted mb-1">matching signals on the graph:</div>
-          <ul className="space-y-0.5">
-            {(d.evidence || []).map((e: string, i: number) => <li key={i} className="text-ink">· {e}</li>)}
-            {(!d.evidence || !d.evidence.length) && <li className="text-muted">no strong identifier matched, so a human decides.</li>}
-          </ul>
+          <div>
+            <div className="text-muted mb-1">extracted from the document (with provenance):</div>
+            {ext ? (
+              <div className="space-y-0.5">
+                {ext.fields.map((f: any, i: number) => (
+                  <div key={i} className="flex justify-between"><span className="text-muted">{f.name}</span><span className="num text-ink">{f.value}</span></div>
+                ))}
+                {!ext.fields.length && <div className="text-muted">no fields found</div>}
+              </div>
+            ) : <div className="text-muted">reading document…</div>}
+          </div>
         </div>
       )}
     </div>
@@ -503,6 +522,110 @@ function EdMessage({ m }: { m: any }) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+const STEP_TONE: Record<string, string> = { done: "accent", waiting_on_client: "amber", needs_review: "amber", needs_approval: "amber", pending: "muted" };
+
+function Close({ firm }: { firm: string }) {
+  const [clients, setClients] = useState<any[]>([]);
+  const [client, setClient] = useState("");
+  const [pbc, setPbc] = useState<any>(null);
+  const [close, setClose] = useState<any>(null);
+  const [running, setRunning] = useState(false);
+  const [csv, setCsv] = useState("");
+  const [imp, setImp] = useState<any>(null);
+  const [importing, setImporting] = useState(false);
+
+  useEffect(() => {
+    setClose(null); setImp(null);
+    api(`/firms/${firm}/clients`).then((c) => { setClients(c); setClient(c[0]?.id); }).catch(() => {});
+    api(`/firms/${firm}/pbc`).then(setPbc).catch(() => {});
+    api(`/import/sample`).then((d) => setCsv(d.csv)).catch(() => {});
+  }, [firm]);
+
+  const runClose = async () => {
+    setRunning(true); setClose(null);
+    try { setClose(await api(`/close`, { method: "POST", body: JSON.stringify({ firm_id: firm, client_id: client, period: "2026-01" }) })); }
+    finally { setRunning(false); }
+  };
+  const runImport = async () => {
+    setImporting(true);
+    try { setImp(await api(`/import`, { method: "POST", body: JSON.stringify({ firm_id: firm, client_id: client, csv }) })); }
+    finally { setImporting(false); }
+  };
+
+  return (
+    <div>
+      <SectionTitle kicker="max · the close" title="Run the close, end to end"
+        desc="One orchestrated workflow: collect missing documents from the client, route what came in, extract the fields, code the transactions, flag anomalies, and draft the client update, with your approval at every gate." />
+
+      {pbc && (
+        <div className="grid grid-cols-3 gap-3 mb-3">
+          <Stat label="clients" value={fmtNum(pbc.summary.total)} />
+          <Stat label="docs complete" value={fmtNum(pbc.summary.complete)} />
+          <Stat label="waiting on documents" value={fmtNum(pbc.summary.waiting_on_docs)} sub="Ed will chase these" />
+        </div>
+      )}
+
+      <div className="card p-5 rise mb-3">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="tag text-muted">client</span>
+          <select value={client} onChange={(e) => setClient(e.target.value)} className="bg-paper border border-line rounded-sm px-2 py-1.5 text-xs num">
+            {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <button onClick={runClose} disabled={running} className="bg-accent text-white px-5 py-1.5 rounded-sm text-sm font-medium disabled:opacity-50">{running ? "running…" : "Run close"}</button>
+        </div>
+        {close && (
+          <ol className="mt-3 border-l-2 border-line pl-4 space-y-3">
+            {close.steps.map((s: any, i: number) => (
+              <li key={i} className="relative">
+                <span className={`absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full ${s.status === "done" ? "bg-accent" : "bg-amber"}`} />
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-ink">{s.step}</span>
+                  <Tag tone={STEP_TONE[s.status] || "muted"}>{s.status.replace(/_/g, " ")}</Tag>
+                </div>
+                <div className="text-xs text-muted">{s.detail}</div>
+                {s.data?.reminder?.body && (
+                  <div className="mt-1 text-xs bg-amber/5 border border-amber/20 rounded-sm px-3 py-2 text-ink">
+                    <span className="tag text-amber">draft reminder, approve to send</span><br />{s.data.reminder.body}
+                  </div>
+                )}
+                {s.data?.message?.body && (
+                  <div className="mt-1 text-xs bg-accentSoft/50 border border-accent/20 rounded-sm px-3 py-2 text-ink">
+                    <span className="tag text-accent">draft client update, approve to send</span><br />{s.data.message.body}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+
+      <div className="card p-5 rise">
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <div className="tag text-accent mb-1">integration: import from QuickBooks / bank</div>
+            <div className="text-sm text-ink">Paste a CSV export and Trustmax ingests and codes it on the way in.</div>
+          </div>
+          <button onClick={runImport} disabled={importing} className="shrink-0 text-xs border border-line rounded-sm px-3 py-1.5 hover:border-accent hover:text-accent disabled:opacity-50">{importing ? "coding…" : "import & code"}</button>
+        </div>
+        <textarea value={csv} onChange={(e) => setCsv(e.target.value)} rows={4}
+          className="w-full bg-paper border border-line rounded-sm px-3 py-2 text-xs num mt-1" />
+        {imp && (
+          <div className="mt-2 card overflow-hidden">
+            {imp.coded.map((c: any, i: number) => (
+              <div key={i} className="ledger-row px-3 py-1.5 grid grid-cols-[1fr_auto_auto_auto] gap-3 items-center text-xs">
+                <span className="text-ink truncate">{c.vendor}</span>
+                <span className="num text-muted text-right">{fmtUSD(c.amount)}</span>
+                <span className="num text-accent w-8 text-right">{c.code}</span>
+                <div className="w-24 text-right"><StatusBadge status={c.status} /></div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

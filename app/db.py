@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS transactions (
 CREATE TABLE IF NOT EXISTS documents (
     id TEXT PRIMARY KEY, firm_id TEXT, doc_type TEXT, filename TEXT,
     sender_email TEXT, sender_domain TEXT, ein_hint TEXT, account_last4 TEXT, vendor_hint TEXT,
+    amount REAL, doc_date TEXT,
     gt_client_id TEXT, routed_client_id TEXT, routing_status TEXT, routing_confidence REAL,
     received_at TEXT
 );
