@@ -1,0 +1,30 @@
+# Render blueprint for the Trustmax backend (FastAPI, Docker).
+# Secrets (GROQ_API_KEY, NEO4J_*) are set in the Render dashboard or via the API, never committed.
+services:
+  - type: web
+    name: trustmax-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: oregon
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: GRAPH_BACKEND
+        value: neo4j
+      - key: EMBED_BACKEND
+        value: hash
+      - key: LLM_PROVIDER
+        value: groq
+      - key: DATA_SCALE
+        value: cloud
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: GROQ_API_KEY
+        sync: false
+      - key: NEO4J_URI
+        sync: false
+      - key: NEO4J_USER
+        sync: false
+      - key: NEO4J_PASSWORD
+        sync: false

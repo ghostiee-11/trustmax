@@ -1,0 +1,39 @@
+# Core API + agents
+fastapi
+uvicorn[standard]
+pydantic>=2
+python-dotenv
+httpx
+
+# LLM + retrieval
+langchain
+langchain-core
+langgraph
+langchain-groq
+fastembed
+faiss-cpu
+
+# ML
+numpy<2.3
+scikit-learn
+
+# Knowledge graph
+neo4j
+networkx
+
+# Entity resolution
+rapidfuzz
+
+# Security
+cryptography
+
+# Synthetic data
+faker
+
+# GNN (heavy; the graph-ML module falls back to scikit-learn if these are absent)
+torch
+torch-geometric
+
+# Optional Postgres/Supabase backend
+# psycopg[binary]
+# supabase

@@ -1,0 +1,20 @@
+# Slim runtime for cloud (free-tier friendly). The app auto-falls-back:
+#   - no fastembed  -> hash-ngram embedder (entity resolution still works)
+#   - no torch/PyG  -> GNN uses the sklearn path (not used by the dashboard)
+#   - GRAPH_BACKEND=networkx -> embedded graph, no external Neo4j
+fastapi
+uvicorn[standard]
+pydantic>=2
+python-dotenv
+httpx
+langchain
+langchain-core
+langgraph
+langchain-groq
+numpy<2.3
+scikit-learn
+networkx
+neo4j
+rapidfuzz
+faker
+cryptography

@@ -1,0 +1,43 @@
+# Trustmax local infrastructure.
+#   docker compose up -d neo4j
+# Neo4j Browser: http://localhost:7474  (user: neo4j, pass: trustmax123)
+# Bolt:          bolt://localhost:7687
+#
+# Supabase/Postgres is optional (the app defaults to embedded SQLite). Uncomment the `postgres`
+# service to run a local Postgres compatible with the Supabase/Postgres DataStore backend.
+
+services:
+  neo4j:
+    image: neo4j:5.26
+    container_name: trustmax-neo4j
+    ports:
+      - "7474:7474"   # HTTP browser
+      - "7687:7687"   # Bolt
+    environment:
+      NEO4J_AUTH: neo4j/trustmax123
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_dbms_security_procedures_unrestricted: apoc.*
+      NEO4J_server_memory_heap_max__size: 1G
+    volumes:
+      - neo4j_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # Optional local Postgres for the Supabase/Postgres DataStore backend.
+  # postgres:
+  #   image: postgres:16
+  #   container_name: trustmax-postgres
+  #   ports: ["5432:5432"]
+  #   environment:
+  #     POSTGRES_USER: trustmax
+  #     POSTGRES_PASSWORD: trustmax123
+  #     POSTGRES_DB: trustmax
+  #   volumes:
+  #     - pg_data:/var/lib/postgresql/data
+
+volumes:
+  neo4j_data:
+  # pg_data:
