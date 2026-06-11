@@ -97,6 +97,7 @@ export default function Page() {
   const [firm, setFirm] = useState<string>("");
   const [tab, setTab] = useState("overview");
   const [meta, setMeta] = useState<any>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     api("/firms").then((f) => { setFirms(f); setFirm(f[0]?.id); }).catch(() => {});
@@ -107,23 +108,44 @@ export default function Page() {
   const pageMeta = PAGE_META[tab] || { kicker: "", title: "" };
 
   return (
-    <div className="min-h-screen grid grid-cols-[264px_1fr]">
-      <aside className="sticky top-0 h-screen flex flex-col border-r border-line bg-shell/70">
-        <div className="px-5 pt-6 pb-4">
-          <div className="flex items-center gap-2.5">
+    <div className="min-h-screen lg:grid lg:grid-cols-[264px_1fr]">
+      <div
+        className={`fixed inset-0 z-40 bg-ink/40 transition-opacity duration-200 lg:hidden ${sidebarOpen ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+        onClick={() => setSidebarOpen(false)}
+        aria-hidden="true"
+      />
+      <aside
+        className={`fixed top-0 left-0 z-50 h-screen w-[264px] flex flex-col border-r border-line bg-shell shadow-pop transition-transform duration-200 ease-out ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        } lg:sticky lg:z-auto lg:w-auto lg:translate-x-0 lg:bg-shell/70 lg:shadow-none lg:transition-none`}
+      >
+        <div className="px-5 pt-6 pb-4 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
             <BrandMark />
             <div className="min-w-0">
               <div className="font-display text-[19px] tracking-tight leading-none text-ink">Trustmax</div>
               <div className="tag text-faint mt-1.5">Graph-native trust layer</div>
             </div>
           </div>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden shrink-0 -mr-1 p-1.5 rounded-lg text-muted hover:text-ink hover:bg-ink/5"
+            aria-label="Close navigation"
+          >
+            <I name="x" size={16} />
+          </button>
         </div>
         <nav className="flex-1 overflow-y-auto px-3 pb-4">
           {NAV_GROUPS.map((g, gi) => (
             <div key={gi}>
               {g.label ? <div className="nav-group">{g.label}</div> : <div className="h-2" />}
               {g.items.map((it) => (
-                <button key={it.id} onClick={() => setTab(it.id)} data-active={tab === it.id} className="nav-item mb-0.5">
+                <button
+                  key={it.id}
+                  onClick={() => { setTab(it.id); setSidebarOpen(false); }}
+                  data-active={tab === it.id}
+                  className="nav-item mb-0.5"
+                >
                   <I name={it.icon} size={16} className="nav-ico" strokeWidth={1.7} />
                   {it.label}
                 </button>
@@ -135,10 +157,19 @@ export default function Page() {
       </aside>
 
       <div className="flex flex-col min-w-0">
-        <header className="sticky top-0 z-30 h-[58px] px-8 flex items-center justify-between border-b border-line bg-paper/85 backdrop-blur">
-          <div className="min-w-0">
-            <div className="tag text-faint leading-none">{pageMeta.kicker}</div>
-            <div className="font-display text-[16px] text-ink leading-tight mt-0.5 truncate">{pageMeta.title}</div>
+        <header className="sticky top-0 z-30 h-[58px] px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3 border-b border-line bg-paper/85 backdrop-blur">
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden shrink-0 -ml-1 p-1.5 rounded-lg text-muted hover:text-ink hover:bg-ink/5"
+              aria-label="Open navigation"
+            >
+              <I name="menu" size={18} />
+            </button>
+            <div className="min-w-0">
+              <div className="tag text-faint leading-none">{pageMeta.kicker}</div>
+              <div className="font-display text-[16px] text-ink leading-tight mt-0.5 truncate">{pageMeta.title}</div>
+            </div>
           </div>
           <div className="flex items-center gap-2.5">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/25 bg-accentSoft px-2.5 py-[5px] text-[11px] font-medium text-accent">
@@ -148,7 +179,7 @@ export default function Page() {
           </div>
         </header>
 
-        <main className="px-8 py-9">
+        <main className="px-4 sm:px-6 lg:px-8 py-6 lg:py-9">
           <div className="mx-auto max-w-[1120px]">
             {firm && (
               <div key={`${tab}:${firm}`}>
@@ -176,8 +207,13 @@ export default function Page() {
 /* ------------------------------------------------------------------ */
 
 function SkelStats({ n, className = "" }: { n: number; className?: string }) {
+  const cols =
+    n === 4 ? "grid-cols-2 lg:grid-cols-4"
+    : n === 3 ? "grid-cols-1 sm:grid-cols-3"
+    : n === 2 ? "grid-cols-1 md:grid-cols-2"
+    : "grid-cols-1";
   return (
-    <div className={`grid gap-3 ${className}`} style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }}>
+    <div className={`grid gap-3 ${cols} ${className}`}>
       {Array.from({ length: n }).map((_, i) => (
         <div key={i} className="skel h-[108px]" />
       ))}
@@ -235,7 +271,7 @@ function Overview({ firm, firmName }: { firm: string; firmName?: string }) {
       {!ov ? (
         <SkelStats n={4} className="mb-3" />
       ) : (
-        <div className="grid grid-cols-4 gap-3 mb-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
           <Stat label="Clients" value={fmtNum(ov.clients)} />
           <Stat label="Transactions" value={fmtNum(ov.transactions)} />
           <Stat label="Documents" value={fmtNum(ov.documents)} />
@@ -266,7 +302,7 @@ function Overview({ firm, firmName }: { firm: string; firmName?: string }) {
               Vendors, accounts, clients, and learned facts form one connected memory across the firm. Each human approval makes the next decision safer.
             </p>
           </div>
-          <div className="flex gap-10 pr-2">
+          <div className="flex flex-wrap gap-x-10 gap-y-4 pr-2">
             <div>
               <div className="num text-[26px] font-medium text-white leading-tight">{fmtNum(kg.nodes)}</div>
               <div className="tag text-[#9CC4AA] mt-1.5">Nodes · all firms</div>
@@ -284,7 +320,7 @@ function Overview({ firm, firmName }: { firm: string; firmName?: string }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {PRINCIPLES.map((p) => (
           <div key={p.title} className="card card-hover p-5 flex items-start gap-3.5">
             <div className="w-9 h-9 shrink-0 rounded-lg bg-accentSoft border border-accent/15 text-accent flex items-center justify-center">
@@ -333,7 +369,7 @@ function Coding({ firm }: { firm: string }) {
       {!latest ? (
         <SkelStats n={4} className="mb-3" />
       ) : (
-        <div className="grid grid-cols-4 gap-3 mb-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
           <Stat label="Accuracy" value={`${(latest.accuracy * 100).toFixed(1)}%`} meter={latest.accuracy} sub={`latest batch ${latest.batch_id}`} />
           <Stat label="Auto-approve rate" value={`${(latest.auto_approve_rate * 100).toFixed(1)}%`} meter={latest.auto_approve_rate} tone="amber" sub="earned autonomy" />
           <Stat label="Auto-approved errors" value={`${(latest.auto_approved_error_rate * 100).toFixed(1)}%`} sub="held near zero by design" />
@@ -342,7 +378,7 @@ function Coding({ firm }: { firm: string }) {
       )}
 
       <div className="card card-hover p-6 mb-3">
-        <div className="flex justify-between items-baseline mb-5">
+        <div className="flex flex-wrap justify-between items-baseline gap-x-4 gap-y-2 mb-5">
           <div className="font-display text-[17px] text-ink">Accuracy and autonomy over time</div>
           <div className="flex gap-4 text-xs text-muted">
             <span className="flex items-center gap-1.5"><i className="w-3 h-[3px] rounded-full bg-accent inline-block" />accuracy</span>
@@ -378,26 +414,30 @@ function Coding({ firm }: { firm: string }) {
           <span className="font-display text-[15px] text-ink">Flywheel by month</span>
           <span className="tag text-faint">{score.length} batches</span>
         </div>
-        <div className="px-5 py-2 rule thead grid grid-cols-[86px_1fr_1fr_104px_104px] gap-4 bg-paper/50">
-          <span>Batch</span><span>Accuracy</span><span>Auto-approve</span>
-          <span className="text-right">Auto-errors</span><span className="text-right">Grounded</span>
-        </div>
-        {score.map((r) => (
-          <div key={r.batch_id} className="ledger-row px-5 py-2.5 grid grid-cols-[86px_1fr_1fr_104px_104px] gap-4 items-center text-xs">
-            <span className="num text-ink">{r.batch_id}</span>
-            <span className="flex items-center gap-2.5">
-              <span className="num text-accent w-12 shrink-0">{(r.accuracy * 100).toFixed(1)}%</span>
-              <span className="flex-1 max-w-[110px]"><Meter value={r.accuracy} /></span>
-            </span>
-            <span className="flex items-center gap-2.5">
-              <span className="num text-amber w-12 shrink-0">{(r.auto_approve_rate * 100).toFixed(1)}%</span>
-              <span className="flex-1 max-w-[110px]"><Meter value={r.auto_approve_rate} tone="amber" /></span>
-            </span>
-            <span className="num text-right text-muted">{(r.auto_approved_error_rate * 100).toFixed(1)}%</span>
-            <span className="num text-right text-muted">{(r.graph_grounded_rate * 100).toFixed(0)}%</span>
+        <div className="overflow-x-auto">
+          <div className="min-w-[640px]">
+            <div className="px-5 py-2 rule thead grid grid-cols-[86px_1fr_1fr_104px_104px] gap-4 bg-paper/50">
+              <span>Batch</span><span>Accuracy</span><span>Auto-approve</span>
+              <span className="text-right">Auto-errors</span><span className="text-right">Grounded</span>
+            </div>
+            {score.map((r) => (
+              <div key={r.batch_id} className="ledger-row px-5 py-2.5 grid grid-cols-[86px_1fr_1fr_104px_104px] gap-4 items-center text-xs">
+                <span className="num text-ink">{r.batch_id}</span>
+                <span className="flex items-center gap-2.5">
+                  <span className="num text-accent w-12 shrink-0">{(r.accuracy * 100).toFixed(1)}%</span>
+                  <span className="flex-1 max-w-[110px]"><Meter value={r.accuracy} /></span>
+                </span>
+                <span className="flex items-center gap-2.5">
+                  <span className="num text-amber w-12 shrink-0">{(r.auto_approve_rate * 100).toFixed(1)}%</span>
+                  <span className="flex-1 max-w-[110px]"><Meter value={r.auto_approve_rate} tone="amber" /></span>
+                </span>
+                <span className="num text-right text-muted">{(r.auto_approved_error_rate * 100).toFixed(1)}%</span>
+                <span className="num text-right text-muted">{(r.graph_grounded_rate * 100).toFixed(0)}%</span>
+              </div>
+            ))}
+            {!score.length && <SkelRows n={4} />}
           </div>
-        ))}
-        {!score.length && <SkelRows n={4} />}
+        </div>
       </div>
 
       <div className="card card-hover overflow-hidden">
@@ -405,16 +445,20 @@ function Coding({ firm }: { firm: string }) {
           <span className="font-display text-[15px] text-ink">Recent transactions</span>
           <span className="tag text-faint">Expand a row to see why</span>
         </div>
-        <div className="px-5 py-2 rule thead grid grid-cols-[14px_1fr_110px_64px_104px_120px] gap-4 bg-paper/50">
-          <span />
-          <span>Vendor · client</span>
-          <span className="text-right">Amount</span>
-          <span className="text-right">Code</span>
-          <span>Grounding</span>
-          <span className="text-right">Status</span>
+        <div className="overflow-x-auto">
+          <div className="min-w-[680px]">
+            <div className="px-5 py-2 rule thead grid grid-cols-[14px_1fr_110px_64px_104px_120px] gap-4 bg-paper/50">
+              <span />
+              <span>Vendor · client</span>
+              <span className="text-right">Amount</span>
+              <span className="text-right">Code</span>
+              <span>Grounding</span>
+              <span className="text-right">Status</span>
+            </div>
+            {txns.map((t) => <CodingRow key={t.id} t={t} />)}
+            {!txns.length && <SkelRows n={6} />}
+          </div>
         </div>
-        {txns.map((t) => <CodingRow key={t.id} t={t} />)}
-        {!txns.length && <SkelRows n={6} />}
       </div>
     </div>
   );
@@ -492,14 +536,14 @@ function Routing({ firm }: { firm: string }) {
       {!sum ? (
         <SkelStats n={3} className="mb-3" />
       ) : (
-        <div className="grid grid-cols-3 gap-3 mb-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
           <Stat label="Documents" value={fmtNum(sum.documents)} />
           <Stat label="Auto-routed" value={fmtNum(sum.auto_routed)} sub={pct(sum.auto_routed / sum.documents)} meter={sum.documents ? sum.auto_routed / sum.documents : 0} />
           <Stat label="To human review" value={fmtNum(sum.needs_review)} sub="ambiguous, escalated" />
         </div>
       )}
 
-      <div className="flex gap-1.5 mb-3">
+      <div className="flex flex-wrap gap-1.5 mb-3">
         {[["all", "All"], ["auto_routed", "Auto-routed"], ["needs_review", "Needs review"]].map(([id, label]) => (
           <Chip key={id} active={filter === id} onClick={() => setFilter(id)} count={(counts as any)[id]}>
             {label}
@@ -508,15 +552,19 @@ function Routing({ firm }: { firm: string }) {
       </div>
 
       <div className="card card-hover overflow-hidden">
-        <div className="px-5 py-2 rule thead grid grid-cols-[14px_1fr_170px_72px_120px] gap-4 bg-paper/50">
-          <span />
-          <span>Document</span>
-          <span className="hidden md:block">Sender</span>
-          <span className="text-right">Conf.</span>
-          <span className="text-right">Status</span>
+        <div className="overflow-x-auto">
+          <div className="min-w-[680px]">
+            <div className="px-5 py-2 rule thead grid grid-cols-[14px_1fr_170px_72px_120px] gap-4 bg-paper/50">
+              <span />
+              <span>Document</span>
+              <span>Sender</span>
+              <span className="text-right">Conf.</span>
+              <span className="text-right">Status</span>
+            </div>
+            {shown.map((d) => <RoutingRow key={d.id} d={d} firm={firm} />)}
+            {!shown.length && <SkelRows n={6} />}
+          </div>
         </div>
-        {shown.map((d) => <RoutingRow key={d.id} d={d} firm={firm} />)}
-        {!shown.length && <SkelRows n={6} />}
       </div>
     </div>
   );
@@ -542,7 +590,7 @@ function RoutingRow({ d, firm }: { d: any; firm: string }) {
           <span className="text-ink truncate">{d.filename}</span>
           <span className="text-faint text-xs whitespace-nowrap">· {d.doc_type}</span>
         </div>
-        <div className="num text-muted text-xs hidden md:block truncate">{d.sender_domain}</div>
+        <div className="num text-muted text-xs truncate">{d.sender_domain}</div>
         <div className="num text-muted text-xs text-right">{d.confidence != null ? `${(d.confidence * 100).toFixed(0)}%` : ""}</div>
         <div className="text-right"><StatusBadge status={d.status} /></div>
       </button>
@@ -625,7 +673,7 @@ function Alerts({ firm }: { firm: string }) {
         desc="Duplicates, unusual amounts, and missing categories, each with the evidence that justifies it. Expand an alert to inspect the evidence and confirm or dismiss it."
       />
 
-      <div className="flex gap-1.5 mb-4">
+      <div className="flex flex-wrap gap-1.5 mb-4">
         {[["all", "All"], ["duplicate", "Duplicates"], ["unusual_amount", "Unusual amounts"], ["missing_category", "Missing category"]].map(([id, label]) => (
           <Chip key={id} active={filter === id} onClick={() => setFilter(id)} count={counts[id] ?? 0}>
             {label}
@@ -661,7 +709,7 @@ function AlertRow({ a }: { a: any }) {
       {open && (
         <div className="unfold px-5 pb-4 pt-3 border-t border-line bg-paper/60 text-xs">
           <div className="tag text-faint mb-2">Evidence</div>
-          <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 num text-muted mb-4 max-w-xl">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 num text-muted mb-4 max-w-xl">
             {Object.entries(a.evidence || {}).filter(([k]) => k !== "note").map(([k, v]) => (
               <div key={k} className="flex justify-between gap-3 border-b border-line/70 py-[3px]">
                 <span>{k.replace(/_/g, " ")}</span>
@@ -760,8 +808,8 @@ function AskEd({ firm }: { firm: string }) {
       />
 
       <div className="grid lg:grid-cols-[1fr_300px] gap-4 items-start">
-        <div className="card overflow-hidden flex flex-col h-[600px]">
-          <div className="px-5 py-3 border-b border-line flex items-center justify-between gap-4">
+        <div className="card overflow-hidden flex flex-col h-[520px] sm:h-[600px]">
+          <div className="px-5 py-3 border-b border-line flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
             <div className="flex items-center gap-2.5 min-w-0">
               <EdMark size={30} />
               <div className="min-w-0">
@@ -871,7 +919,8 @@ function AnswerTable({ table }: { table: any }) {
       )}
       {open && (
         <div className="card overflow-hidden unfold">
-          <div className="max-h-56 overflow-y-auto">
+          <div className="max-h-56 overflow-auto">
+            <div className="min-w-[420px]">
             {table.type === "transactions" && (
               <div className="px-3 py-1.5 rule thead grid grid-cols-[78px_1fr_92px_44px] gap-3 bg-paper sticky top-0 z-10">
                 <span>Date</span><span>Vendor</span><span className="text-right">Amount</span><span className="text-right">Code</span>
@@ -899,6 +948,7 @@ function AnswerTable({ table }: { table: any }) {
                 <span className="num text-ink text-right w-20">{fmtUSD(r.total)}</span>
               </div>
             ))}
+            </div>
           </div>
         </div>
       )}
@@ -1077,7 +1127,7 @@ function Close({ firm }: { firm: string }) {
       {!pbc ? (
         <SkelStats n={3} className="mb-3" />
       ) : (
-        <div className="grid grid-cols-3 gap-3 mb-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
           <Stat label="Clients" value={fmtNum(pbc.summary.total)} />
           <Stat label="Docs complete" value={fmtNum(pbc.summary.complete)} />
           <Stat label="Waiting on documents" value={fmtNum(pbc.summary.waiting_on_docs)} sub="Ed will chase these" />
@@ -1090,7 +1140,7 @@ function Close({ firm }: { firm: string }) {
             <span className="font-display text-[17px] text-ink">Close orchestrator</span>
             <Tag tone="muted"><I name="calendar" size={10} /> period 2026-01</Tag>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="tag text-faint">Client</span>
             <Select value={client} onChange={(e) => setClient(e.target.value)} ariaLabel="Select client">
               {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -1116,7 +1166,7 @@ function Close({ firm }: { firm: string }) {
       </div>
 
       <div className="card card-hover p-6">
-        <div className="flex items-start justify-between gap-4 mb-3">
+        <div className="flex flex-wrap items-start justify-between gap-4 mb-3">
           <div className="flex items-start gap-3.5">
             <div className="w-9 h-9 shrink-0 rounded-lg bg-accentSoft border border-accent/15 text-accent flex items-center justify-center">
               <I name="upload" size={15} />
@@ -1140,17 +1190,21 @@ function Close({ firm }: { firm: string }) {
         />
         {imp && (
           <div className="mt-3 card overflow-hidden unfold">
-            <div className="px-4 py-2 rule thead grid grid-cols-[1fr_110px_56px_130px] gap-3 bg-paper/50">
-              <span>Vendor</span><span className="text-right">Amount</span><span className="text-right">Code</span><span className="text-right">Status</span>
-            </div>
-            {imp.coded.map((c: any, i: number) => (
-              <div key={i} className="ledger-row px-4 py-2 grid grid-cols-[1fr_110px_56px_130px] gap-3 items-center text-xs">
-                <span className="text-ink truncate">{c.vendor}</span>
-                <span className="num text-muted text-right">{fmtUSD(c.amount)}</span>
-                <span className="num text-accent text-right">{c.code}</span>
-                <div className="text-right"><StatusBadge status={c.status} /></div>
+            <div className="overflow-x-auto">
+              <div className="min-w-[600px]">
+                <div className="px-4 py-2 rule thead grid grid-cols-[1fr_110px_56px_130px] gap-3 bg-paper/50">
+                  <span>Vendor</span><span className="text-right">Amount</span><span className="text-right">Code</span><span className="text-right">Status</span>
+                </div>
+                {imp.coded.map((c: any, i: number) => (
+                  <div key={i} className="ledger-row px-4 py-2 grid grid-cols-[1fr_110px_56px_130px] gap-3 items-center text-xs">
+                    <span className="text-ink truncate">{c.vendor}</span>
+                    <span className="num text-muted text-right">{fmtUSD(c.amount)}</span>
+                    <span className="num text-accent text-right">{c.code}</span>
+                    <div className="text-right"><StatusBadge status={c.status} /></div>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
           </div>
         )}
       </div>
@@ -1173,7 +1227,7 @@ function KgDelta({ before, after, delta }: { before: any; after: any; delta: any
       <div className="relative">
         <div className="tag text-[#9CC4AA] mb-1">Autonomous update</div>
         <div className="font-display text-[19px] mb-5">The knowledge graph updated itself</div>
-        <div className="grid grid-cols-3 gap-6">
+        <div className="grid grid-cols-3 gap-4 sm:gap-6">
           {rows.map((r) => (
             <div key={r.label}>
               <div className="flex items-baseline gap-2">
@@ -1367,10 +1421,14 @@ function Ingest({ firm }: { firm: string }) {
             <span className="font-display text-[15px] text-ink">Coded on the way in</span>
             <span className="tag text-faint">{res.counts.ingested} lines · {res.counts.auto_approved} auto-approved · +{res.counts.facts_learned} facts</span>
           </div>
-          <div className="px-4 py-2 rule thead grid grid-cols-[14px_1fr_100px_56px_104px_120px] gap-3 bg-paper/50">
-            <span /><span>Vendor</span><span className="text-right">Amount</span><span className="text-right">Code</span><span>Grounding</span><span className="text-right">Status</span>
+          <div className="overflow-x-auto">
+            <div className="min-w-[640px]">
+              <div className="px-4 py-2 rule thead grid grid-cols-[14px_1fr_100px_56px_104px_120px] gap-3 bg-paper/50">
+                <span /><span>Vendor</span><span className="text-right">Amount</span><span className="text-right">Code</span><span>Grounding</span><span className="text-right">Status</span>
+              </div>
+              {res.items.map((it: any, i: number) => <IngestItemRow key={i} it={it} />)}
+            </div>
           </div>
-          {res.items.map((it: any, i: number) => <IngestItemRow key={i} it={it} />)}
         </div>
       )}
 
@@ -1464,7 +1522,7 @@ function Recon({ firm }: { firm: string }) {
       </SectionTitle>
 
       {!s ? <SkelStats n={4} className="mb-3" /> : (
-        <div className="grid grid-cols-4 gap-3 mb-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
           <Stat label="Auto-matched" value={`${(s.match_rate * 100).toFixed(0)}%`} meter={s.match_rate} sub={`${s.matched} of ${s.bank_lines} bank lines`} />
           <Stat label="Reconciled" value={fmtUSD(s.reconciled_amount)} sub="tied to the ledger" />
           <Stat label="Exceptions" value={fmtNum(s.exceptions)} tone="amber" sub="need a human look" />
@@ -1484,17 +1542,21 @@ function Recon({ firm }: { firm: string }) {
               <span className="font-display text-[15px] text-ink">Exceptions</span>
               <span className="tag text-faint">{shown.length} shown</span>
             </div>
-            {shown.map((e: any, i: number) => (
-              <div key={i} className="ledger-row px-5 py-3 flex items-start gap-3">
-                <Tag tone={RECON_TONE[e.type] || "muted"}>{RECON_LABELS[e.type] || e.type}</Tag>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm text-ink leading-snug">{e.detail}</div>
-                  <div className="text-xs text-muted mt-0.5 leading-relaxed">{e.suggestion}</div>
-                </div>
-                <div className="num text-sm text-ink shrink-0">{fmtUSD(Math.abs(e.amount))}</div>
+            <div className="overflow-x-auto">
+              <div className="min-w-[600px]">
+                {shown.map((e: any, i: number) => (
+                  <div key={i} className="ledger-row px-5 py-3 flex items-start gap-3">
+                    <Tag tone={RECON_TONE[e.type] || "muted"}>{RECON_LABELS[e.type] || e.type}</Tag>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-ink leading-snug">{e.detail}</div>
+                      <div className="text-xs text-muted mt-0.5 leading-relaxed">{e.suggestion}</div>
+                    </div>
+                    <div className="num text-sm text-ink shrink-0">{fmtUSD(Math.abs(e.amount))}</div>
+                  </div>
+                ))}
+                {!shown.length && <div className="px-5 py-7 text-sm text-muted text-center">Nothing in this category. Clean.</div>}
               </div>
-            ))}
-            {!shown.length && <div className="px-5 py-7 text-sm text-muted text-center">Nothing in this category. Clean.</div>}
+            </div>
           </div>
 
           {data.matches?.length > 0 && (
@@ -1505,19 +1567,23 @@ function Recon({ firm }: { firm: string }) {
               </button>
               {showMatches && (
                 <div className="card overflow-hidden mt-2 unfold">
-                  <div className="px-4 py-2 rule thead grid grid-cols-[1fr_88px_1fr_88px_64px] gap-3 bg-paper/50">
-                    <span>Bank payee</span><span className="text-right">Bank</span><span>Ledger</span><span className="text-right">Books</span><span className="text-right">Conf.</span>
-                  </div>
-                  <div className="max-h-72 overflow-y-auto">
-                    {data.matches.map((m: any, i: number) => (
-                      <div key={i} className="ledger-row px-4 py-2 grid grid-cols-[1fr_88px_1fr_88px_64px] gap-3 items-center text-xs">
-                        <span className="text-ink truncate">{m.bank.payee}</span>
-                        <span className="num text-muted text-right">{fmtUSD(m.bank.amount)}</span>
-                        <span className="text-muted truncate">{m.book.vendor}</span>
-                        <span className="num text-ink text-right">{fmtUSD(m.book.amount)}</span>
-                        <span className="num text-accent text-right">{Math.round(m.confidence * 100)}%</span>
+                  <div className="overflow-x-auto">
+                    <div className="min-w-[620px]">
+                      <div className="px-4 py-2 rule thead grid grid-cols-[1fr_88px_1fr_88px_64px] gap-3 bg-paper/50">
+                        <span>Bank payee</span><span className="text-right">Bank</span><span>Ledger</span><span className="text-right">Books</span><span className="text-right">Conf.</span>
                       </div>
-                    ))}
+                      <div className="max-h-72 overflow-y-auto">
+                        {data.matches.map((m: any, i: number) => (
+                          <div key={i} className="ledger-row px-4 py-2 grid grid-cols-[1fr_88px_1fr_88px_64px] gap-3 items-center text-xs">
+                            <span className="text-ink truncate">{m.bank.payee}</span>
+                            <span className="num text-muted text-right">{fmtUSD(m.bank.amount)}</span>
+                            <span className="text-muted truncate">{m.book.vendor}</span>
+                            <span className="num text-ink text-right">{fmtUSD(m.book.amount)}</span>
+                            <span className="num text-accent text-right">{Math.round(m.confidence * 100)}%</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1612,7 +1678,7 @@ function Flux({ firm }: { firm: string }) {
             <p className="font-display text-[18px] text-ink leading-snug">{data.narrative}</p>
           </div>
 
-          <div className="grid grid-cols-3 gap-3 mb-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
             <Stat label={`Spend ${data.period}`} value={fmtUSD(data.total.current)} />
             <Stat label={`Spend ${data.prior}`} value={fmtUSD(data.total.prior)} />
             <Stat label="Net change" value={`${data.total.delta > 0 ? "+" : ""}${fmtUSD(data.total.delta)}`} tone={data.total.delta > 0 ? "amber" : "accent"}
@@ -1624,22 +1690,26 @@ function Flux({ firm }: { firm: string }) {
               <span className="font-display text-[15px] text-ink">Variance by category</span>
               <span className="tag text-faint">sorted by movement</span>
             </div>
-            <div className="px-5 py-2 rule thead grid grid-cols-[1fr_96px_96px_104px_120px] gap-3 bg-paper/50">
-              <span>Category</span>
-              <span className="text-right">{data.prior}</span>
-              <span className="text-right">{data.period}</span>
-              <span className="text-right">Change</span>
-              <span>Movement</span>
-            </div>
-            {rows.map((r: any) => (
-              <div key={r.code} className="ledger-row px-5 py-2.5 grid grid-cols-[1fr_96px_96px_104px_120px] gap-3 items-center text-xs">
-                <span className="text-ink truncate"><span className="num text-faint">{r.code}</span> {r.name}</span>
-                <span className="num text-muted text-right">{fmtUSD(r.prior)}</span>
-                <span className="num text-ink text-right">{fmtUSD(r.current)}</span>
-                <span className={`num text-right ${r.delta > 0 ? "text-rust" : r.delta < 0 ? "text-accent" : "text-faint"}`}>{r.delta > 0 ? "+" : ""}{fmtUSD(r.delta)}</span>
-                <span><FluxBar value={r.delta} max={maxDelta} /></span>
+            <div className="overflow-x-auto">
+              <div className="min-w-[680px]">
+                <div className="px-5 py-2 rule thead grid grid-cols-[1fr_96px_96px_104px_120px] gap-3 bg-paper/50">
+                  <span>Category</span>
+                  <span className="text-right">{data.prior}</span>
+                  <span className="text-right">{data.period}</span>
+                  <span className="text-right">Change</span>
+                  <span>Movement</span>
+                </div>
+                {rows.map((r: any) => (
+                  <div key={r.code} className="ledger-row px-5 py-2.5 grid grid-cols-[1fr_96px_96px_104px_120px] gap-3 items-center text-xs">
+                    <span className="text-ink truncate"><span className="num text-faint">{r.code}</span> {r.name}</span>
+                    <span className="num text-muted text-right">{fmtUSD(r.prior)}</span>
+                    <span className="num text-ink text-right">{fmtUSD(r.current)}</span>
+                    <span className={`num text-right ${r.delta > 0 ? "text-rust" : r.delta < 0 ? "text-accent" : "text-faint"}`}>{r.delta > 0 ? "+" : ""}{fmtUSD(r.delta)}</span>
+                    <span><FluxBar value={r.delta} max={maxDelta} /></span>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
           </div>
 
           {data.drivers?.length > 0 && (
@@ -1648,7 +1718,11 @@ function Flux({ firm }: { firm: string }) {
                 <span className="font-display text-[15px] text-ink">Top movers</span>
                 <span className="tag text-faint">expand to see the transactions</span>
               </div>
-              {data.drivers.map((d: any, i: number) => <FluxDriver key={i} d={d} />)}
+              <div className="overflow-x-auto">
+                <div className="min-w-[520px]">
+                  {data.drivers.map((d: any, i: number) => <FluxDriver key={i} d={d} />)}
+                </div>
+              </div>
             </div>
           )}
         </>
@@ -1855,7 +1929,7 @@ function Trust({ firm }: { firm: string }) {
       {!health ? (
         <SkelStats n={4} className="mb-3" />
       ) : (
-        <div className="grid grid-cols-4 gap-3 mb-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
           <Stat label="Audit chain" value={health?.audit_chain_valid ? "Verified" : "Broken"} sub={`${fmtNum(health?.audit_events)} events, hash-chained`} />
           <Stat label="Security checks" value={health?.security_checks || "-"} />
           <Stat label="Compliance findings" value={fmtNum(health?.compliance_findings)} sub={`${health?.compliance_high || 0} high severity`} />
@@ -1863,7 +1937,7 @@ function Trust({ firm }: { firm: string }) {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {SCENARIOS.map((s) => <ScenarioCard key={s.id} s={s} />)}
       </div>
 
@@ -1881,8 +1955,8 @@ function Trust({ firm }: { firm: string }) {
                 <div className="text-xs text-muted mt-0.5">Pick any transaction to trace its full decision path.</div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Select value={txId} onChange={(e) => load(e.target.value)} ariaLabel="Transaction to explain">
+            <div className="flex flex-wrap items-center gap-2">
+              <Select value={txId} onChange={(e) => load(e.target.value)} ariaLabel="Transaction to explain" className="max-w-[230px] sm:max-w-none">
                 {txns.map((t) => (
                   <option key={t.id} value={t.id}>{t.vendor_raw} · {fmtUSD(t.amount)}</option>
                 ))}

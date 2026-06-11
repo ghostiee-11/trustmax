@@ -44,6 +44,13 @@ const P: Record<string, React.ReactNode> = {
       <path d="m9 12 2 2 4-4" />
     </>
   ),
+  menu: (
+    <>
+      <path d="M4 6h16" />
+      <path d="M4 12h16" />
+      <path d="M4 18h16" />
+    </>
+  ),
   chevronDown: <path d="m6 9 6 6 6-6" />,
   chevronRight: <path d="m9 6 6 6-6 6" />,
   chevronsUpDown: (

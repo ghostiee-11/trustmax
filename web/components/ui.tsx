@@ -56,13 +56,13 @@ export function SectionTitle({
   kicker?: string; title: string; desc?: string; children?: React.ReactNode;
 }) {
   return (
-    <div className="mb-7 flex items-end justify-between gap-6">
+    <div className="mb-7 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
       <div className="min-w-0">
         {kicker && <div className="tag text-accent mb-1.5">{kicker}</div>}
         <h2 className="font-display text-[28px] leading-tight tracking-tight text-ink">{title}</h2>
         {desc && <p className="text-sm text-muted mt-2 max-w-2xl leading-relaxed">{desc}</p>}
       </div>
-      {children && <div className="shrink-0 pb-1">{children}</div>}
+      {children && <div className="shrink-0 max-w-full pb-1">{children}</div>}
     </div>
   );
 }
